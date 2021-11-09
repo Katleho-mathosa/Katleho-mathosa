@@ -1,0 +1,46 @@
+#include <reg51.h>
+
+ sbit wave = P1^0; //port for pulse width modulator
+ unsigned int z=0 , x = -50 , y = -50; //declare variables for sbuf and 50/50 duty cycle values
+
+ void tim0(void) interrupt 1 //timer used for high and low
+ {
+ if(F0==0) //IF TIMER FLAG IS ZERO
+{
+ wave = 0; //low part of wave
+ TH0 = x; //time off
+ F0 = 1; //to run program again and jump to else
+ }
+ else
+ {
+ wave = 1; //high part of wave
+ TH0 = y; //time on
+ F0 = 0; //timer flag low
+ }
+ }
+ void serial0(void) interrupt 4 //interrupt for pulse width modulation
+ {
+ z = SBUF; //send + or - to serial port
+ if(z=='+' && y<-10 ) //+ to increase speed (duty cycle)
+ {
+ x -= 10;
+ y += 10;
+ }
+ else if(z=='-' && x<-10 ) //- for lower speed (duty cycle)
+ {
+ x+=10;
+ y-=10;
+ }
+ while(RI==0); //clear sbuf, so user can enter a new value
+ RI=0;
+ }
+
+ void main(void)
+ {
+ TMOD = 0x22; //set timer mode 2 for both timers
+ TH1 = -3; //set the value of the baud rate to be 9600
+ SCON = 0x50;
+ TR1 = 1; //turn timer 1 on
+ IE = 0x92; //set value to enable interrupts
+ TR0 = 1; //turn on timer
+w
