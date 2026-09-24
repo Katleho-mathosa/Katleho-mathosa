@@ -6,7 +6,11 @@ export interface StudioState {
   slots: SlotMap
   locked: SlotId[]
   tucked: boolean
+  /** Slots whose item was picked by the mock AI (shown with a "Simulated" badge). */
+  aiPicked?: SlotId[]
 }
+
+const withoutAi = (state: StudioState, slots: SlotId[]) => (state.aiPicked ?? []).filter((s) => !slots.includes(s))
 
 export type PlaceResult = { ok: true; state: StudioState; slot: SlotId; replaced: string[] } | { ok: false; message: string }
 
@@ -29,13 +33,13 @@ export function placeItem(state: StudioState, item: Item): PlaceResult {
     delete slots[s]
   }
   slots[slot] = item.id
-  return { ok: true, state: { ...state, slots }, slot, replaced }
+  return { ok: true, state: { ...state, slots, aiPicked: withoutAi(state, clears) }, slot, replaced }
 }
 
 export function removeSlot(state: StudioState, slot: SlotId): StudioState {
   const slots = { ...state.slots }
   delete slots[slot]
-  return { ...state, slots, locked: state.locked.filter((s) => s !== slot) }
+  return { ...state, slots, locked: state.locked.filter((s) => s !== slot), aiPicked: withoutAi(state, [slot]) }
 }
 
 export function toggleLock(state: StudioState, slot: SlotId): StudioState {
@@ -51,4 +55,12 @@ export function lockedItems(state: StudioState): SlotMap {
 }
 
 export const sameStudio = (a: StudioState, b: StudioState) =>
-  a.tucked === b.tucked && JSON.stringify(a.slots) === JSON.stringify(b.slots) && a.locked.join() === b.locked.join()
+  a.tucked === b.tucked &&
+  JSON.stringify(a.slots) === JSON.stringify(b.slots) &&
+  a.locked.join() === b.locked.join() &&
+  (a.aiPicked ?? []).join() === (b.aiPicked ?? []).join()
+
+/** Every filled slot except the locked ones — what the mock AI chose. */
+export function aiSlots(slots: SlotMap, locked: SlotId[]): SlotId[] {
+  return (Object.keys(slots) as SlotId[]).filter((s) => slots[s] && !locked.includes(s))
+}

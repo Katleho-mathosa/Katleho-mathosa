@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent, type DragStartEvent,
 } from '@dnd-kit/core'
-import { Check, ClipboardList, CloudSun, Lock, Redo2, Save, Shirt, Shuffle, Undo2, Hand } from 'lucide-react'
+import { Check, ClipboardList, CloudSun, Hand, Lock, Redo2, Save, Shirt, Shuffle, Sparkles, Undo2 } from 'lucide-react'
 import type { Category, Item, SlotId } from '../../types'
 import { useItemMap, useStore } from '../../store/useStore'
 import { Mannequin } from '../../components/Mannequin'
@@ -94,7 +94,7 @@ export function Studio() {
             <button
               type="button"
               onClick={() => setCtxOpen(true)}
-              className="-ml-1 flex min-h-8 items-center gap-1.5 rounded-full px-1 text-xs text-muted"
+              className="-my-2 -ml-1 flex min-h-11 items-center gap-1.5 rounded-full px-1 text-xs text-muted"
             >
               <CloudSun size={14} />
               <span className="truncate">
@@ -130,6 +130,9 @@ export function Studio() {
                 onSlotClick={onSlotClick}
                 className="h-full max-h-full w-auto select-none touch-none"
               />
+              {(studio.aiPicked ?? []).some((s) => studio.slots[s]) && (
+                <SimulatedBadge className="absolute bottom-0 left-1" label={`${(studio.aiPicked ?? []).filter((s) => studio.slots[s]).length} simulated picks`} />
+              )}
               {!filled.length && (
                 <div className="pointer-events-none absolute inset-x-6 top-1/3 rounded-2xl bg-surface/90 p-3 text-center text-sm text-muted shadow-sm">
                   <Hand className="mx-auto mb-1" size={20} />
@@ -140,6 +143,7 @@ export function Studio() {
             <SlotRail
               slots={studio.slots}
               locked={studio.locked}
+              aiPicked={studio.aiPicked ?? []}
               itemMap={itemMap}
               onTap={onSlotClick}
               onPointerDown={(slot, e) => longPress.start(slot, e)}
@@ -268,17 +272,20 @@ function ActionBtn({
 }
 
 function SlotRail({
-  slots, locked, itemMap, onTap, onPointerDown, selected,
+  slots, locked, aiPicked, itemMap, onTap, onPointerDown, selected,
 }: {
   slots: Partial<Record<SlotId, string>>
   locked: SlotId[]
+  aiPicked: SlotId[]
   itemMap: Record<string, Item>
   onTap: (s: SlotId) => void
   onPointerDown: (s: SlotId, e: React.PointerEvent) => void
   selected: SlotId | null
 }) {
   return (
-    <div className="no-scrollbar flex w-[58px] shrink-0 flex-col justify-center gap-1.5 overflow-y-auto pr-2">
+    <div className="no-scrollbar flex w-[58px] shrink-0 flex-col overflow-y-auto pr-2">
+      {/* my-auto centres the rail without clipping the top when it overflows on short screens */}
+      <div className="my-auto flex flex-col gap-1.5 py-1">
       {SLOT_ORDER.map((slot) => {
         const item = slots[slot] ? itemMap[slots[slot]!] : undefined
         const isLocked = locked.includes(slot)
@@ -302,6 +309,11 @@ function SlotRail({
             ) : (
               <span className="text-[8.5px] font-semibold uppercase leading-tight text-muted">{SLOT_LABEL[slot].split(' ')[0]}</span>
             )}
+            {item && aiPicked.includes(slot) && !isLocked && (
+              <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full border border-warn/40 bg-warn-soft text-warn" title="Picked by mock AI (simulated)">
+                <Sparkles size={10} strokeWidth={2.6} />
+              </span>
+            )}
             {isLocked && (
               <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-on-accent">
                 <Lock size={11} strokeWidth={2.6} />
@@ -310,6 +322,7 @@ function SlotRail({
           </button>
         )
       })}
+      </div>
     </div>
   )
 }
@@ -338,7 +351,7 @@ function Drawer({
             type="button"
             onClick={() => setCat(t.id)}
             className={cx(
-              'min-h-9 shrink-0 rounded-full px-3 text-xs font-semibold transition-colors duration-150',
+              'min-h-11 shrink-0 rounded-full px-3 text-xs font-semibold transition-colors duration-150',
               cat === t.id ? 'bg-ink text-canvas' : 'text-muted hover:bg-surface-2',
             )}
           >
@@ -351,7 +364,7 @@ function Drawer({
           <DrawerTile key={i.id} item={i} onTap={() => onTap(i.id)} worn={onMannequin.has(i.id)} />
         ))}
       </div>
-      <p className="px-4 text-center text-[10.5px] text-muted">Tap or drag up to add · long-press a slot to shuffle it</p>
+      <p className="px-4 text-center text-[10.5px] text-muted [@media(max-height:720px)]:hidden">Tap or drag up to add · long-press a slot to shuffle it</p>
     </div>
   )
 }

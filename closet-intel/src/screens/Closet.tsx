@@ -4,7 +4,7 @@ import type { Category, Item, Season } from '../types'
 import { useStore } from '../store/useStore'
 import { CATEGORIES, SEASONS, categoryPlural } from '../data/catalogue'
 import { COLOURS, colour } from '../data/colours'
-import { daysSince } from '../lib/date'
+import { daysIdle } from '../lib/date'
 import { Button, Chip, ItemImage, Sheet, Swatch, Toggle, cx } from '../components/ui'
 import { FORMALITY_LABELS } from '../components/TagEditor'
 import { ItemDetail } from './ItemDetail'
@@ -41,7 +41,7 @@ export function Closet() {
       if (filters.colours.length && !filters.colours.includes(i.primaryColour) && !filters.colours.includes(i.secondaryColour)) return false
       if (filters.seasons.length && !filters.seasons.some((s) => i.seasons.includes(s))) return false
       if (filters.formality.length && !filters.formality.includes(i.formality)) return false
-      if (filters.stale && daysSince(i.lastWorn) < 30) return false
+      if (filters.stale && daysIdle(i) < 30) return false
       return true
     })
   }, [items, cat, query, filters])
@@ -71,7 +71,7 @@ export function Closet() {
               className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted"
             />
             {query && (
-              <button type="button" aria-label="Clear search" onClick={() => setQuery('')} className="text-muted">
+              <button type="button" aria-label="Clear search" onClick={() => setQuery('')} className="-mr-3 flex h-11 w-11 items-center justify-center text-muted">
                 <X size={16} />
               </button>
             )}
@@ -153,7 +153,7 @@ export function Closet() {
 }
 
 function ItemCard({ item, fresh, onOpen }: { item: Item; fresh: boolean; onOpen: () => void }) {
-  const stale = daysSince(item.lastWorn) >= 30
+  const stale = daysIdle(item) >= 30
   return (
     <button
       type="button"

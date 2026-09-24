@@ -62,3 +62,8 @@ export function dayNum(iso: string): number {
 export function longDate(iso: string): string {
   return parseISO(iso).toLocaleDateString('en-ZA', { weekday: 'long', day: 'numeric', month: 'long' })
 }
+
+/** Days since an item was last worn — or, if never worn, since it was added. */
+export function daysIdle(item: { lastWorn: string | null; dateAdded: string }): number {
+  return daysSince(item.lastWorn ?? item.dateAdded)
+}

@@ -98,7 +98,7 @@ export function ItemDetail({ itemId, onClose }: { itemId: string | null; onClose
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-2xl border border-line bg-surface px-2 py-2.5">
-      <div className="text-base font-semibold">{value}</div>
+      <div className="whitespace-nowrap text-sm font-semibold">{value}</div>
       <div className="text-[11px] text-muted">{label}</div>
     </div>
   )

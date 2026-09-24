@@ -7,7 +7,7 @@ import { renderItemArt } from '../art/garments'
 import { slotForItem, subcategoryInfo } from '../data/catalogue'
 import { safeStorage } from '../lib/storage'
 import { todayISO } from '../lib/date'
-import { placeItem, removeSlot, sameStudio, toggleLock, type StudioState } from '../lib/studio'
+import { aiSlots, placeItem, removeSlot, sameStudio, toggleLock, type StudioState } from '../lib/studio'
 
 export type Tab = 'today' | 'closet' | 'studio' | 'outfits'
 export type Theme = 'system' | 'light' | 'dark'
@@ -59,12 +59,13 @@ interface Actions {
   studioRemove: (slot: SlotId) => void
   studioToggleLock: (slot: SlotId) => void
   studioSetTucked: (t: boolean) => void
-  studioLoad: (slots: SlotMap, tucked: boolean, opts?: { locked?: SlotId[]; outfitId?: string | null }) => void
+  studioLoad: (slots: SlotMap, tucked: boolean, opts?: { locked?: SlotId[]; outfitId?: string | null; ai?: boolean }) => void
   undo: () => void
   redo: () => void
 
   saveOutfit: (name: string, occasion: Occasion, asNew: boolean) => Outfit
   deleteOutfit: (id: string) => void
+  restoreOutfit: (o: Outfit) => void
   rateOutfit: (id: string, rating: 1 | -1 | 0) => void
   wearToday: (slots: SlotMap, outfitId?: string) => void
   planDay: (date: string, outfit: Outfit | null) => void
@@ -110,9 +111,9 @@ export const useStore = create<State & Actions>()(
         setTimeout(() => get().dismissToast(t.id), opts?.action ? 4500 : 2600)
       },
       dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
-      openAddFlow: (addFlowOpen) => set({ addFlowOpen }),
+      openAddFlow: (addFlowOpen) => set(addFlowOpen ? { addFlowOpen, freshIds: [] } : { addFlowOpen }),
 
-      addItems: (items) => set((s) => ({ items: [...items, ...s.items], freshIds: items.map((i) => i.id) })),
+      addItems: (items) => set((s) => ({ items: [...items, ...s.items], freshIds: [...items.map((i) => i.id), ...s.freshIds] })),
       updateItem: (id, patch) =>
         set((s) => {
           let studio = s.studio
@@ -171,7 +172,10 @@ export const useStore = create<State & Actions>()(
       studioToggleLock: (slot) => get().commitStudio(toggleLock(get().studio, slot)),
       studioSetTucked: (tucked) => get().commitStudio({ ...get().studio, tucked }),
       studioLoad: (slots, tucked, opts) =>
-        get().commitStudio({ slots: { ...slots }, tucked, locked: opts?.locked ?? [] }, opts?.outfitId ?? null),
+        get().commitStudio(
+          { slots: { ...slots }, tucked, locked: opts?.locked ?? [], aiPicked: opts?.ai ? aiSlots(slots, opts?.locked ?? []) : [] },
+          opts?.outfitId ?? null,
+        ),
       undo: () =>
         set((s) => {
           if (!s.past.length) return {}
@@ -203,6 +207,7 @@ export const useStore = create<State & Actions>()(
           wearLog: s.wearLog.filter((w) => !(w.planned && w.outfitId === id)),
           studioOutfitId: s.studioOutfitId === id ? null : s.studioOutfitId,
         })),
+      restoreOutfit: (o) => set((s) => ({ outfits: s.outfits.some((x) => x.id === o.id) ? s.outfits : [o, ...s.outfits] })),
       rateOutfit: (id, rating) => set((s) => ({ outfits: s.outfits.map((o) => (o.id === id ? { ...o, rating } : o)) })),
       wearToday: (slots, outfitId) =>
         set((s) => {

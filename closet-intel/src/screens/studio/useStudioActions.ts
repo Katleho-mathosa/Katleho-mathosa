@@ -3,7 +3,7 @@ import type { SlotId } from '../../types'
 import { useStore } from '../../store/useStore'
 import { comboKey, suggestForSlot, suggestOutfits } from '../../ai/mockAi'
 import { weatherById } from '../../data/weather'
-import { lockedItems, placeItem } from '../../lib/studio'
+import { aiSlots, lockedItems, placeItem } from '../../lib/studio'
 import { slotForItem } from '../../data/catalogue'
 import { SLOT_LABEL } from '../../art/mannequin'
 
@@ -38,7 +38,7 @@ export function useShuffle() {
       return
     }
     seen.current.keys.add(comboKey(next.slots))
-    s.commitStudio({ ...s.studio, slots: next.slots, tucked: next.tucked })
+    s.commitStudio({ ...s.studio, slots: next.slots, tucked: next.tucked, aiPicked: aiSlots(next.slots, s.studio.locked) })
   }, [])
 }
 
@@ -67,8 +67,8 @@ export function useShuffleSlot() {
     avoid.add(item.id)
     const res = placeItem(s.studio, item)
     if (!res.ok) return s.toast(res.message, { tone: 'warn' })
-    s.commitStudio(res.state)
-    s.toast(`${SLOT_LABEL[slot]}: ${item.name}`)
+    s.commitStudio({ ...res.state, aiPicked: [...(res.state.aiPicked ?? []), slot] })
+    s.toast(`${SLOT_LABEL[slot]}: ${item.name} · simulated`)
   }, [])
 }
 
@@ -85,7 +85,7 @@ export function useStyleItem() {
     const weather = weatherById(s.weatherId)
     const [sugg] = suggestOutfits(s.items, weather, s.occasion, { [slot]: item.id }, history(), { count: 1 })
     const slots = sugg ? sugg.slots : placed.state.slots
-    s.commitStudio({ slots, locked: [slot], tucked: sugg?.tucked ?? false }, null)
+    s.commitStudio({ slots, locked: [slot], tucked: sugg?.tucked ?? false, aiPicked: aiSlots(slots, [slot]) }, null)
     s.setTab('studio')
     s.toast(`Built a look around ${item.name} · simulated`)
   }, [])

@@ -65,14 +65,14 @@ export function warmthTarget(temp: number): number {
   return 9
 }
 
-/** Warmth of everything except the outer layer. */
+/** Warmth of what stays on all day (everything except the outer layer and scarf). */
 function coreWarmth(o: ResolvedOutfit): number {
-  const { top, bottom, dress, head } = o.items
-  let w = dress ? dress.warmth * 1.6 : (top?.warmth ?? 0) + (bottom?.warmth ?? 0) * 0.8
-  if (head?.shape === 'scarf') w += head.warmth * 0.5
-  return w
+  const { top, bottom, dress } = o.items
+  return dress ? dress.warmth * 1.6 : (top?.warmth ?? 0) + (bottom?.warmth ?? 0) * 0.8
 }
-const fullWarmth = (o: ResolvedOutfit) => coreWarmth(o) + (o.items.outer?.warmth ?? 0)
+/** Warmth with the removable pieces on too (outer layer, scarf). */
+const fullWarmth = (o: ResolvedOutfit) =>
+  coreWarmth(o) + (o.items.outer?.warmth ?? 0) + (o.items.head?.shape === 'scarf' ? o.items.head.warmth * 0.5 : 0)
 
 const swing = (w: WeatherScenario) => w.maxTemp - w.minTemp
 const needsRemovableLayer = (w: WeatherScenario) => swing(w) > 12
@@ -89,7 +89,17 @@ function warmthPenalty(o: ResolvedOutfit, w: WeatherScenario): number {
   }
   const cold = Math.max(0, warmthTarget(w.minTemp) - full)
   const hot = Math.max(0, full - warmthTarget(w.maxTemp) - 0.5)
-  return cold + hot * 0.9
+  return cold + hot * 1.4
+}
+
+/** Season tags vs. the day's weather: no winter-only pieces in a heatwave, no summer-only pieces on a cold day. */
+function seasonPenalty(o: ResolvedOutfit, w: WeatherScenario): number {
+  let p = 0
+  for (const i of allItems(o)) {
+    if (w.maxTemp >= 27 && !i.seasons.includes('summer')) p += 1.2
+    if (w.maxTemp <= 16 && i.seasons.length === 1 && i.seasons[0] === 'summer') p += 1.2
+  }
+  return p
 }
 
 function formalitySpread(items: Item[]): { low?: Item; high?: Item; spread: number } {
@@ -186,6 +196,7 @@ function passesHardRules(o: ResolvedOutfit, lockedIds: Set<string>): boolean {
 function scoreOutfit(o: ResolvedOutfit, weather: WeatherScenario, occasion: Occasion, taste: TasteModel): number {
   let s = 10
   s -= warmthPenalty(o, weather) * 1.2
+  s -= seasonPenalty(o, weather)
   s += occasionBonus(o, occasion)
   s += tasteScore(o, taste)
   if (taste.dislikedCombos.has(comboKey(slotsOf(o)))) s -= 5
@@ -418,23 +429,31 @@ export function explain(outfit: ResolvedOutfit, ctx?: { weather?: WeatherScenari
   const { top, bottom, dress, outer, shoes } = outfit.items
   const weather = ctx?.weather
   const lc = (i?: Item) => i?.name.toLowerCase() ?? ''
-  let clause = ''
+  const base = dress ? `the ${lc(dress)}` : top && bottom ? `the ${lc(top)} with ${lc(bottom)}` : `the ${lc(top ?? bottom)}`
+  const light = weather ? coreWarmth(outfit) <= warmthTarget(weather.maxTemp) + 1 : false
+
+  let clause: string
   if (weather && needsRemovableLayer(weather) && outer) clause = `Layers for the cold ${weather.minTemp}° morning; the ${lc(outer)} comes off by lunch`
-  else if (weather?.rain && outer) clause = `The ${lc(outer)} handles the showers${shoes && shoes.subcategory !== 'Sandals' ? ` and ${lc(shoes)} stay dry-footed` : ''}`
-  else if (weather && weather.maxTemp >= 28) clause = `Light, breathable ${dress ? lc(dress) : `${lc(top)} and ${lc(bottom)}`} for the ${weather.maxTemp}° heat`
-  else if (dress) clause = `The ${lc(dress)} does the work${outer ? ` with the ${lc(outer)} on top` : ''}`
-  else clause = `The ${lc(top)} with ${lc(bottom)} is an easy, balanced pairing`
+  else if (weather?.rain && outer) clause = `The ${lc(outer)} handles the showers${shoes && shoes.subcategory !== 'Sandals' ? ` and the ${lc(shoes)} keep feet dry` : ''}`
+  else if (weather && weather.maxTemp >= 28 && light) clause = `${cap(base)} stays light and breathable for the ${weather.maxTemp}° heat`
+  else if (weather && weather.maxTemp >= 28) clause = `${cap(base)} will run warm at ${weather.maxTemp}°, but it’s the best fit for the occasion`
+  else if (outer) clause = `${cap(base)} under the ${lc(outer)} is an easy, balanced pairing`
+  else clause = `${cap(base)} is an easy, balanced pairing`
 
   const items = allItems(outfit)
   const bold = items.find(isBold)
   const print = items.find((i) => isBusy(i.pattern))
+  const mentioned = clause.toLowerCase()
   let tail = ''
   if (ctx?.occasion === 'traditional' && print) tail = `the ${lc(print)} brings the celebration`
   else if (bold) tail = `${colour(bold.primaryColour).name.toLowerCase()} is the one pop of colour`
   else if (print) tail = `the ${lc(print)} is the only busy piece`
+  else if (!mentioned.includes(base.replace('the ', ''))) tail = `${base} keeps it calm for ${ctx?.occasion ? occasionLabel(ctx.occasion).toLowerCase() : 'the day'}`
   else if (ctx?.occasion) tail = `calm neutrals suit ${occasionLabel(ctx.occasion).toLowerCase()}`
   return tail ? `${clause} — ${tail}.` : `${clause}.`
 }
+
+const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1)
 
 // ─── Tagging ────────────────────────────────────────────────────────────────
 

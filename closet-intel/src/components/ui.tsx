@@ -49,7 +49,7 @@ export function Chip({
       aria-pressed={active}
       className={cx(
         'inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border font-medium transition-colors duration-150',
-        size === 'md' ? 'min-h-11 px-4 text-sm' : 'min-h-9 px-3 text-xs',
+        size === 'md' ? 'min-h-11 px-4 text-sm' : 'min-h-11 px-3.5 text-xs',
         active ? 'border-accent bg-accent text-on-accent' : 'border-line bg-surface text-ink hover:bg-surface-2',
         className,
       )}
