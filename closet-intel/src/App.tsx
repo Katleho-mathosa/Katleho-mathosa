@@ -9,15 +9,28 @@ import { Studio } from './screens/studio/Studio'
 import { Outfits } from './screens/Outfits'
 import { AddItemFlow } from './screens/AddItem'
 
+/**
+ * "System" theme: follow an explicit data-theme="light|dark" on <html> when a host page sets one
+ * (e.g. when embedded), otherwise the OS prefers-color-scheme.
+ */
 function useSystemDark() {
   const q = '(prefers-color-scheme: dark)'
-  const [dark, setDark] = useState(() => window.matchMedia?.(q).matches ?? false)
+  const read = () => {
+    const host = document.documentElement.getAttribute('data-theme')
+    if (host === 'dark' || host === 'light') return host === 'dark'
+    return window.matchMedia?.(q).matches ?? false
+  }
+  const [dark, setDark] = useState(read)
   useEffect(() => {
+    const update = () => setDark(read())
     const m = window.matchMedia?.(q)
-    if (!m) return
-    const on = (e: MediaQueryListEvent) => setDark(e.matches)
-    m.addEventListener('change', on)
-    return () => m.removeEventListener('change', on)
+    m?.addEventListener('change', update)
+    const obs = new MutationObserver(update)
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+    return () => {
+      m?.removeEventListener('change', update)
+      obs.disconnect()
+    }
   }, [])
   return dark
 }
@@ -43,10 +56,10 @@ export default function App() {
   )
 
   return (
-    <div className="flex min-h-full w-full items-center justify-center sm:p-6">
+    <div className="flex h-full w-full items-center justify-center sm:h-auto sm:min-h-full sm:p-6">
       <div
         className={cx(
-          'relative flex h-[100dvh] w-full flex-col overflow-hidden bg-canvas text-ink',
+          'relative flex h-full w-full flex-col overflow-hidden bg-canvas text-ink',
           'sm:h-[min(844px,calc(100dvh-48px))] sm:w-[390px] sm:rounded-[46px] sm:shadow-[0_30px_80px_-20px_rgba(0,0,0,.35)] sm:ring-[10px] sm:ring-[#1c1b1a]',
         )}
       >

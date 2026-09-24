@@ -60,6 +60,9 @@
   --font-display: ui-serif, "New York", "Iowan Old Style", Georgia, serif;
 }
 
+html {
+  box-sizing: border-box;
+}
 html,
 body,
 #root {
